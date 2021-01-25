@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+</head>
+<body>
+
+<p style="font-size:50px;"> Dynamical 2D Lattice </p>
+
+<script>
+
+// var resetN = 0
+
+// parameter inputs //
+d3.select('body')
+.append('p')
+.text('Lattice Size N:')
+
+d3.select('body').append('form').attr('id', 'N')
+d3.select('#N')
+.append('input')
+.attr('type', 'text')
+.attr('value', '50')
+.attr('style', "width:70px;")
+.attr('id', 'N_i')
+// d3.select('#N')
+// .append('button')
+// .attr('onclick', setN())
+// .text('Change N')
+
+d3.select('body')
+.append('p')
+.text('Tmax:')
+
+d3.select('body').append('form').attr('id', 'tmax')
+d3.select('#tmax')
+.append('input')
+.attr('type', 'text')
+.attr('value', '1')
+.attr('style', "width:70px;")
+.attr('id', 'tmax_i')
+
+d3.select('body')
+.append('p')
+.text('Radius (standard deviation of T decay range):')
+
+d3.select('body').append('form').attr('id', 'rad')
+d3.select('#rad')
+.append('input')
+.attr('type', 'text')
+.attr('value', '0.4')
+.attr('style', "width:70px;")
+.attr('id', 'rad_i')
+
+d3.select('body')
+.append('p')
+.text('n (number of segments per link):')
+
+d3.select('body').append('form').attr('id', 'n')
+d3.select('#n')
+.append('input')
+.attr('type', 'text')
+.attr('value', '40')
+.attr('style', "width:70px;")
+.attr('id', 'n_i')
+
+
+const 
+width = 1000
+height = 1000
+w = 800,
+h = 800,
+samples = 100,
+n = parseInt(d3.select("#n_i").property("value")),
+N = parseInt(d3.select("#N_i").property("value")),
+rows = Array.from({length: N*2}),
+// tmax = 1.
+tmax = parseFloat(d3.select("#tmax_i").property("value")),
+sig = parseFloat(d3.select("#rad_i").property("value"));
+
+center_x = 0.5,
+center_y = 0.5;
+// N = 20
+let mouse = null;
+
+
+d3.select('body')
+.append('p')
+.attr('id', 'center')
+.text('Temperature Center (click to change): x: ' + center_x + ', y: ' + center_y)
+
+x_row = d3.scaleLinear().range([w * 0.05, w * 0.875]),
+y_row = d3.scaleLinear().range([(h * 0.05)/N, (h * 0.875)/N]),
+x_col = d3.scaleLinear().range([(w * 0.05)/N, (w * 0.875)/N]),
+y_col = d3.scaleLinear().range([h * 0.05, h * 0.875]),
+line_row = d3
+  .line()
+  .x((_, i) => x_row(i / samples))
+  .y(y_row);
+line_col = d3
+  .line()
+  .y((_, i) => y_col(i / samples))
+  .x(x_col);
+
+const svg = d3.select('body')
+      .append('svg')
+      .attr("width", width)
+      .attr("height", height)
+      .attr("cursor", "crosshair")
+      .on("mouseleave", mouseleft)
+      .on("mousemove", mousemoved)
+      .on("click", clicked);
+
+
+
+function mouseleft() {
+    mouse = null;
+  }
+
+function mousemoved(event) {
+    const [x, y] = d3.pointer(event);
+    mouse = {x, y};
+    // simulation.alpha(0.3).restart();
+  }
+
+function clicked(event) {
+    mousemoved.call(this, event);
+    center_x = (mouse.x - w * 0.05)/(w * 0.825)
+    center_y = (mouse.y - h * 0.05)/(h * 0.825)
+    // console.log(center_x)
+    // console.log(center_y)
+    d3.select('#center').text('Temperature Center (click to change): x: ' + center_x + ', y: ' + center_y)
+  }
+
+
+
+var path = svg.selectAll('path')
+             .data(rows)
+             .enter()
+              .append("path")
+              .attr("fill", "none")
+              .attr("stroke", 'black')
+              .attr("stroke-width", 0.5)
+              .attr("d", function(d, i){ 
+                if (i < N){return line_row(d3.quantize(d3.interpolateBasis(randomize(tmax, sig, i, 0)), 1 + samples))}
+                else{
+                  return line_col(d3.quantize(d3.interpolateBasis(randomize(tmax, sig, i-N, 1)), 1 + samples))
+                }
+                } )
+              .attr('transform', function(d, i){
+                if (i < N){
+                  return 'translate(0,' + ((i)*h*0.825/(N-1)+h*0.05) + ')'
+                }
+                else{
+                  return 'translate(' + ((i-N)*w*0.825/(N-1)+w*0.05) + ',0)'
+                }
+              })
+
+var previousN = N
+
+var interval = d3.interval(function(elapsed){
+  N = parseInt(d3.select("#N_i").property("value"))
+
+  if (N != previousN){
+    d3.selectAll('path').remove()
+    previousN = N
+    // console.log(N)
+    // console.log(previousN)
+    rows = Array.from({length: N*2})
+    resetN = 0
+    path = svg.selectAll('path')
+             .data(rows)
+             .enter()
+              .append("path")
+              .attr("fill", "none")
+              .attr("stroke", 'black')
+              .attr("stroke-width", 0.5)
+              .attr("d", function(d, i){ 
+                if (i < N){return line_row(d3.quantize(d3.interpolateBasis(randomize(tmax, sig, i, 0)), 1 + samples))}
+                else{
+                  return line_col(d3.quantize(d3.interpolateBasis(randomize(tmax, sig, i-N, 1)), 1 + samples))
+                }
+                } )
+              .attr('transform', function(d, i){
+                if (i < N){
+                  return 'translate(0,' + ((i)*h*0.825/(N-1)+h*0.05) + ')'
+                }
+                else{
+                  return 'translate(' + ((i-N)*w*0.825/(N-1)+w*0.05) + ',0)'
+                }
+              })
+
+  }
+  tmax = parseFloat(d3.select("#tmax_i").property("value"))
+  n = parseInt(d3.select("#n_i").property("value"))
+  // N = parseInt(d3.select("#N_i").property("value"))
+  sig = parseFloat(d3.select("#rad_i").property("value"))
+
+  // y_row = d3.scaleLinear().range([h * 0.9/N, h * 0.05/N]),
+  // x_col = d3.scaleLinear().range([w * 0.05/N, w * 0.875/N]),
+
+  // rows = Array.from({length: N*2}),
+
+  path.transition()
+      .ease(d3.easeLinear)
+      // .duration(500)
+      .attr("d", function(d, i){ 
+      if (i < N){return line_row(d3.quantize(d3.interpolateBasis(randomize(tmax, sig, i, 0)), 1 + samples))}
+      else{
+        return line_col(d3.quantize(d3.interpolateBasis(randomize(tmax, sig, i-N, 1)), 1 + samples))
+      }
+      } )
+      // .attr('transform', function(d, i){
+      //   if (i < N){
+      //     return 'translate(0,' + (i+1)*h*0.825/(N-1) + ')'
+      //   }
+      //   else{
+      //     return 'translate(' + (i-N+1)*w*0.825/(N-1) + ',0)'
+      //   }
+      // })
+    }, 250
+);
+
+function temp(tmax, sig, j, flag){
+  if (flag==0){
+    var tem = Array.from({length: n}).map(function(d,i){
+      return tmax*Math.exp(-(Math.sqrt((i/(n-1)-center_x)**2 + (j/(N-1)-center_y)**2)/sig**2))
+    })
+    return tem
+  }
+  else{
+    var tem = Array.from({length: n}).map(function(d,i){
+      return tmax*Math.exp(-(Math.sqrt(((i/(n-1)-center_y))**2 + ((j/(N-1)-center_x))**2)/sig**2))
+    })
+    return tem
+  }
+}
+
+function randomize(tmax, sig, j, flag){
+  tem = temp(tmax, sig, j, flag)
+  // console.log(tem)
+  a = tem.map(function(d, i){
+    return Math.random() * d
+  })
+  // console.log(a)
+  return a
+}
+
+
+// function setN(){
+//   resetN = 1
+//   N = parseInt(d3.select("#N_i").property("value"))
+//   console.log(N)
+// }
+
+// function trans(){
+//   path.transition()
+//     .ease(d3.easeLinear)
+//     .duration(500)
+//     .attr("d", function(d, i){ 
+//       if (i < 20){return line_row(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))}
+//       else{
+//         return line_col(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))
+//       }
+//       } )
+//     .on('end', function() {
+//       trans();
+//     })
+// }
+
+// trans();
+
+// while (true){
+//   // yield svg.node();
+  
+//   await path
+//     .transition()
+//     .ease(d3.easeLinear)
+//     .duration(500)
+//     .delay(500)
+//     .attr("d", function(d, i){ 
+//       if (i < 20){return line_row(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))}
+//       else{
+//         return line_col(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))
+//       }
+//       } )
+
+//     .end();
+// }
+
+
+
+/*
+
+    const samples = 300,
+    w = 600,
+    h = 600,
+    chart = d3.select('body')
+      .append('svg')
+      .attr("width", w)
+      .attr("height", h),
+    x_row = d3.scaleLinear().range([w * 0.05, w * 0.875]),
+    y_row = d3.scaleLinear().range([h * 0.9/20, h * 0.05/20]),
+    x_col = d3.scaleLinear().range([w * 0.05/20, w * 0.875/20]),
+    y_col = d3.scaleLinear().range([h * 0.9, h * 0.05]),
+    line_row = d3
+      .line()
+      .x((_, i) => x_row(i / samples))
+      .y(y_row);
+    line_col = d3
+      .line()
+      .y((_, i) => y_col(i / samples))
+      .x(x_col);
+
+
+var rows = Array.from({length: 20})
+
+    var path_row = chart
+    	.selectAll('path')
+    	.data(rows)
+    	.enter()
+      .append("path")
+      .attr("fill", "none")
+      .attr("stroke", 'black')
+      .attr("d", function(d){ return line_row(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))} )
+      .attr('transform', function(d, i){return 'translate(0,' + (i+1)*h*0.85/20 + ')'})
+
+for (let t =0, T=5; t < T; t++){
+	path_row.transition()
+    	.ease(d3.easeLinear)
+    	.duration(500)
+    	.delay(t*500)
+    	.attr("d", function(d){ return line_row(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))} )
+}
+
+var cols = Array.from({length: 40})
+
+
+var path_col = chart
+		.selectAll('path')
+    	.data(cols)
+    	.enter()
+      .append("path")
+      .attr("fill", "none")
+      .attr("stroke", 'black')
+      .attr("d", function(d){ return line_col(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))} )
+      .attr('transform', function(d, i){return 'translate(' + (i-19)*h*0.85/20 + ',0)'})
+
+for (let t =0, T=5; t < T; t++){
+	path_col.transition()
+    	.ease(d3.easeLinear)
+    	.duration(500)
+    	.delay(t*500)
+    	.attr("d", function(d){ return line_col(d3.quantize(d3.interpolateBasis(Array.from({length: 40}, Math.random)), 1 + samples))} )
+}
+*/
+
+</script>
+</body>
+</html>
